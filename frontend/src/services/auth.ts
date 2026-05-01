@@ -7,11 +7,17 @@ import {
   signInWithCredential,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-GoogleSignin.configure({
-  webClientId: '749339297785-afem6hcvs1uib7bk3os37p49kvbgdlti.apps.googleusercontent.com',
-});
+// Intentamos cargar Google Sign-In. Si estamos en Expo Go, fallará silenciosamente sin romper la app.
+let GoogleSignin: any = null;
+try {
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  GoogleSignin.configure({
+    webClientId: '749339297785-afem6hcvs1uib7bk3os37p49kvbgdlti.apps.googleusercontent.com',
+  });
+} catch (e) {
+  console.log('Google Sign-In nativo no está disponible (esto es normal usando Expo Go).');
+}
 
 export const loginWithEmail = async (email: string, pass: string) => {
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
@@ -33,6 +39,10 @@ export const logout = async () => {
 
 export const loginWithGoogle = async () => {
   try {
+    if (!GoogleSignin) {
+      throw new Error('Google Sign-In no funciona dentro de Expo Go. Inicia sesión con correo por ahora.');
+    }
+
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     const response = await GoogleSignin.signIn();
     

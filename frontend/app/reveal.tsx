@@ -65,7 +65,7 @@ export default function RevealScreen() {
           });
           // Usamos un sonido de internet temporal. Para usar tu propio archivo guárdalo en la carpeta assets y usa:
           // const { sound: newSound } = await Audio.Sound.createAsync(require('../assets/aplausos.mp3'));
-          const { sound: newSound } = await Audio.Sound.createAsync({ uri: 'https://actions.google.com/sounds/v1/crowds/crowd_cheer.ogg' }); // Aplausos confiables de Google
+          const { sound: newSound } = await Audio.Sound.createAsync({ uri: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_247ddbb454.mp3' }); // Aplausos en formato MP3 universal
           setSound(newSound);
           await newSound.playAsync();
         } catch (e) {

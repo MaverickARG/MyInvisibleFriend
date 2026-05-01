@@ -133,7 +133,9 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.logoutLink}>Salir</Text>
           </TouchableOpacity>
-          <Link href="/history" style={styles.historyLink}>Historial</Link>
+          <TouchableOpacity onPress={() => router.push('/history')}>
+            <Text style={styles.historyLink}>Historial</Text>
+          </TouchableOpacity>
         </View>
       </View>
       
