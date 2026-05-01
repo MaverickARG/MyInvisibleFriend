@@ -1,15 +1,32 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking as RNLinking, Alert } from 'react-native';
+import * as Linking from 'expo-linking';
 import { DrawResult } from '../utils/drawLogic';
 
 interface Props {
   results: DrawResult[];
+  drawId?: string;
+  drawName?: string;
   onReset: () => void;
   resetButtonTitle?: string;
 }
 
-export default function ResultDisplay({ results, onReset, resetButtonTitle }: Props) {
+export default function ResultDisplay({ results, drawId, drawName, onReset, resetButtonTitle }: Props) {
   const [selectedGiverId, setSelectedGiverId] = useState<string | null>(null);
+
+  const shareViaWhatsApp = (giverName: string, giverId: string) => {
+    if (!drawId) {
+      Alert.alert('Error', 'No se ha podido obtener el ID del sorteo. Intenta guardarlo primero.');
+      return;
+    }
+    
+    // Generamos un enlace único (Deep Link) para esta persona
+    const url = Linking.createURL('reveal', { queryParams: { drawId, giverId } });
+    const drawText = drawName ? `\nSorteo *${drawName}*.` : '';
+    const message = `🎄 ¡Hola *${giverName}*! 🎅\n\nEres parte del Amigo Invisible!!${drawText}\n\nEntra al siguiente enlace secreto para ver a quién te toca regalar:\n\n👇 *DESCUBRE TU AMIGO INVISIBLE* 👇\n${url}\n\n_¡Shh! Es un secreto_ 🤫`;
+    
+    RNLinking.openURL(`whatsapp://send?text=${encodeURIComponent(message)}`);
+  };
 
   // Muestra el amigo invisible solo del participante seleccionado para no hacer spoilers al resto.
   return (
@@ -30,6 +47,14 @@ export default function ResultDisplay({ results, onReset, resetButtonTitle }: Pr
                   <Text style={styles.avatarText}>{result.giver.name.charAt(0).toUpperCase()}</Text>
                 </View>
                 <Text style={styles.giverText}>{result.giver.name}</Text>
+                
+                <TouchableOpacity 
+                  style={styles.whatsappBtn} 
+                  onPress={(e) => { e.stopPropagation(); shareViaWhatsApp(result.giver.name, result.giver.id); }}
+                >
+                  <Text style={styles.whatsappIcon}>💬</Text>
+                </TouchableOpacity>
+                
                 <Text style={styles.toggleIcon}>{isSelected ? '▲' : '▼'}</Text>
               </TouchableOpacity>
               
@@ -116,6 +141,16 @@ const styles = StyleSheet.create({
   toggleIcon: {
     fontSize: 16,
     color: '#a4b0be',
+  },
+  whatsappBtn: {
+    backgroundColor: '#2ed573',
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  whatsappIcon: {
+    fontSize: 16,
+    color: '#fff',
   },
   receiverContainer: {
     padding: 20,

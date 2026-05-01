@@ -4,6 +4,7 @@ import { Link, useLocalSearchParams, router } from 'expo-router';
 import ParticipantList from '../src/components/ParticipantList';
 import DrawButton from '../src/components/DrawButton';
 import ResultDisplay from '../src/components/ResultDisplay';
+import { logout } from '../src/services/auth';
 import { performDraw, Participant, DrawResult } from '../src/utils/drawLogic';
 import { saveDraw, getDrawHistory, SavedDraw } from '../src/services/db';
 
@@ -14,6 +15,7 @@ export default function HomeScreen() {
   const [drawName, setDrawName] = useState<string>('');
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [results, setResults] = useState<DrawResult[] | null>(null);
+  const [isNameConfirmed, setIsNameConfirmed] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function HomeScreen() {
       setDrawName(found.name);
       setParticipants(found.participants || []);
       setResults(found.results);
+      setIsNameConfirmed(true);
     }
   };
 
@@ -77,11 +80,11 @@ export default function HomeScreen() {
     }
     try {
       const drawResults = performDraw(participants);
-      setResults(drawResults);
       setError('');
       // Guardar localmente con resultados
       const result = await saveDraw(drawName.trim(), participants, drawResults, drawId);
       setDrawId(result.draw.id);
+      setResults(drawResults);
     } catch (err: any) {
       setError(err.message);
     }
@@ -97,6 +100,7 @@ export default function HomeScreen() {
     setDrawName('');
     setResults(null);
     setParticipants(participants.map(p => ({ ...p, exclusions: [] })));
+    setIsNameConfirmed(false);
     router.setParams({ loadId: undefined });
     alert('Sorteo clonado. Nombres mantenidos, pero se borraron las reglas. Ingresa un nuevo nombre para el sorteo.');
   };
@@ -106,7 +110,16 @@ export default function HomeScreen() {
     setResults(null);
     setDrawName('');
     setDrawId(undefined);
+    setIsNameConfirmed(false);
     router.setParams({ loadId: undefined });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err: any) {
+      Alert.alert('Error', 'No se pudo cerrar sesión.');
+    }
   };
 
   return (
@@ -117,41 +130,82 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={resetAll}>
             <Text style={styles.resetLink}>Limpiar</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <Text style={styles.logoutLink}>Salir</Text>
+          </TouchableOpacity>
           <Link href="/history" style={styles.historyLink}>Historial</Link>
         </View>
       </View>
       
       {!results ? (
-        <>
+        !isNameConfirmed ? (
           <View style={styles.card}>
+            <Text style={styles.setupTitle}>¿Qué sorteo vamos a hacer?</Text>
+            <Text style={styles.setupSubtitle}>Ingresa un nombre para identificarlo más adelante.</Text>
             <TextInput
-              style={styles.drawNameInput}
-              placeholder='Nombre del sorteo (ej. "Navidad 2026")'
+              style={styles.setupInput}
+              placeholder='Ej. "Navidad 2026"'
               placeholderTextColor="#a4b0be"
               value={drawName}
               onChangeText={setDrawName}
+              autoFocus
+              onSubmitEditing={() => {
+                if (drawName.trim()) {
+                  setError('');
+                  setIsNameConfirmed(true);
+                } else {
+                  setError('Dale un nombre al sorteo para continuar.');
+                }
+              }}
             />
-            <ParticipantList 
-              participants={participants} 
-              onAdd={handleAddParticipant} 
-              onRemove={handleRemoveParticipant}
-              onUpdateExclusions={handleUpdateExclusions}
-            />
-          </View>
-          
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.draftBtn} onPress={handleSaveDraft}>
-              <Text style={styles.draftBtnText}>💾 Guardar Borrador</Text>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <TouchableOpacity 
+              style={styles.setupBtn} 
+              onPress={() => {
+                if (drawName.trim()) {
+                  setError('');
+                  setIsNameConfirmed(true);
+                } else {
+                  setError('Dale un nombre al sorteo para continuar.');
+                }
+              }}
+            >
+              <Text style={styles.setupBtnText}>Comenzar Sorteo</Text>
             </TouchableOpacity>
-            <DrawButton onPress={handleDraw} disabled={participants.length < 3} />
           </View>
-        </>
+        ) : (
+          <>
+            <View style={styles.card}>
+              <View style={styles.activeDrawHeader}>
+                <Text style={styles.activeDrawName}>{drawName}</Text>
+                <TouchableOpacity onPress={() => setIsNameConfirmed(false)}>
+                  <Text style={styles.editIcon}>✏️</Text>
+                </TouchableOpacity>
+              </View>
+              <ParticipantList 
+                participants={participants} 
+                onAdd={handleAddParticipant} 
+                onRemove={handleRemoveParticipant}
+                onUpdateExclusions={handleUpdateExclusions}
+              />
+            </View>
+            
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.draftBtn} onPress={handleSaveDraft}>
+                <Text style={styles.draftBtnText}>💾 Guardar Borrador</Text>
+              </TouchableOpacity>
+              <DrawButton onPress={handleDraw} disabled={participants.length < 3} />
+            </View>
+          </>
+        )
       ) : (
         <>
           <ResultDisplay 
             results={results} 
+            drawId={drawId}
+            drawName={drawName}
             onReset={resetAll} 
           />
           <View style={styles.redrawContainer}>
@@ -197,6 +251,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
+  logoutLink: {
+    color: '#747d8c',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
   historyLink: {
     color: '#2ed573',
     fontWeight: 'bold',
@@ -213,14 +272,58 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  drawNameInput: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#f1f2f6',
-    paddingVertical: 10,
-    marginBottom: 20,
-    fontSize: 18,
+  setupTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#2f3542',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  setupSubtitle: {
+    fontSize: 14,
+    color: '#747d8c',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  setupInput: {
+    backgroundColor: '#f1f2f6',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 18,
+    color: '#2f3542',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  setupBtn: {
+    backgroundColor: '#2ed573',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  setupBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  activeDrawHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 15,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f2f6',
+  },
+  activeDrawName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2f3542',
+    flex: 1,
+  },
+  editIcon: {
+    fontSize: 18,
+    padding: 5,
   },
   error: {
     color: '#ff4757',

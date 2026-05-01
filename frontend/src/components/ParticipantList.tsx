@@ -56,6 +56,7 @@ export default function ParticipantList({ participants, onAdd, onRemove, onUpdat
           value={name}
           onChangeText={setName}
           onSubmitEditing={handleAdd}
+          blurOnSubmit={false}
         />
         <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
           <Text style={styles.addButtonText}>Añadir</Text>
